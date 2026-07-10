@@ -1,6 +1,6 @@
 const express = require("express");
 const User = require("../models/User");
-const bcrypt = require('bcryptjs');
+const bcrypt = require("bcryptjs");
 const { body, validationResult } = require("express-validator");
 const jwt = require("jsonwebtoken");
 const router = express.Router();
@@ -42,15 +42,50 @@ router.post(
         user: {
           id: user.id,
           email,
-        }
-      }
+        },
+      };
       const authToken = jwt.sign(data, process.env.JWT_SECRET);
 
-      res.status(201).json({ message: "User created successfully!",  authToken });
+      res
+        .status(201)
+        .json({ message: "User created successfully!", data: authToken });
     } catch (error) {
       res.status(500).send("Something is wrong!");
     }
   },
 );
 
+router.post(
+  "/login",
+  [
+    body("email", "Enter a valid email").isEmail(),
+    body("password", "Password cannot be blank").exists(),
+  ],
+  async (req, res) => {
+    const { email, password } = req.body;
+    try {
+      let isUserExist = await User.findOne({ email });
+
+      if (!isUserExist)
+        return res.status(400).json({ error: "Email - Invalid Credentials!" });
+
+      const isPasswordMatch = await bcrypt.compare(password, isUserExist.password);
+
+      if (!isPasswordMatch)
+        return res
+          .status(400)
+          .json({ error: "Password - Invalid Credentials!" });
+
+      const data = {
+        user: { id: isUserExist.id, email },
+      };
+      const authToken = jwt.sign(data, process.env.JWT_SECRET);
+
+      res.status(200).json({ message: "Login Successfully!", authToken });
+    } catch (error) {
+      console.log(error);
+      res.status(500).send("Something is wrong!");
+    }
+  },
+);
 module.exports = router;
